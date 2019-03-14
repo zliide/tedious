@@ -39,10 +39,6 @@
   "publishConfig": {
     "tag": "next"
   },
-  "optionalDependencies": {
-    "adal-node": "^0.1.22",
-    "iconv-lite": "^0.4.23"
-  },
   "dependencies": {
     "big-number": "1.0.0",
     "bl": "^2.2.0",
