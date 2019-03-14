@@ -1,4 +1,4 @@
-const iconv = require('iconv-lite');
+const StringDecoder = require('string_decoder').StringDecoder
 const sprintf = require('sprintf-js').sprintf;
 const TYPE = require('./data-type').TYPE;
 const guidParser = require('./guid-parser');
@@ -376,6 +376,7 @@ function readChars(parser, dataLength, codepage, nullValue, callback) {
     return callback(null);
   } else {
     return parser.readBuffer(dataLength, (data) => {
+      const iconv = require('iconv-lite') || StringDecoder(codepage);
       callback(iconv.decode(data, codepage));
     });
   }
@@ -399,9 +400,9 @@ function readMaxChars(parser, codepage, callback) {
   if (codepage == null) {
     codepage = DEFAULT_ENCODING;
   }
-
   readMax(parser, (data) => {
     if (data) {
+      const iconv = require('iconv-lite') || StringDecoder(codepage);
       callback(iconv.decode(data, codepage));
     } else {
       callback(null);

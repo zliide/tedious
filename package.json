@@ -39,12 +39,14 @@
   "publishConfig": {
     "tag": "next"
   },
-  "dependencies": {
+  "optionalDependencies": {
     "adal-node": "^0.1.22",
+    "iconv-lite": "^0.4.23"
+  },
+  "dependencies": {
     "big-number": "1.0.0",
     "bl": "^2.2.0",
     "depd": "^1.1.2",
-    "iconv-lite": "^0.4.23",
     "native-duplexpair": "^1.0.0",
     "punycode": "^2.1.0",
     "readable-stream": "^3.1.1",
