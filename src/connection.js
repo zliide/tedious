@@ -1976,7 +1976,7 @@ Connection.prototype.STATE = {
       },
       message: function() {
         if (this.fedAuthInfoToken && this.fedAuthInfoToken.stsurl && this.fedAuthInfoToken.spn) {
-          const { AuthenticationContext } = require('adal-node');
+          // const { AuthenticationContext } = require('adal-node');
 
           const clientId = '7f98cb04-cd1e-40df-9140-3bf7e2cea4db';
           const context = new AuthenticationContext(this.fedAuthInfoToken.stsurl);
