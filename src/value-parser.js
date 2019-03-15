@@ -376,8 +376,7 @@ function readChars(parser, dataLength, codepage, nullValue, callback) {
     return callback(null);
   } else {
     return parser.readBuffer(dataLength, (data) => {
-      const iconv = StringDecoder(codepage);
-      callback(iconv.decode(data, codepage));
+      callback(decode(data, codepage));
     });
   }
 }
@@ -402,12 +401,18 @@ function readMaxChars(parser, codepage, callback) {
   }
   readMax(parser, (data) => {
     if (data) {
-      const iconv = StringDecoder(codepage);
-      callback(iconv.decode(data));
+      callback(decode(data, codepage));
     } else {
       callback(null);
     }
   });
+}
+
+function decode(data, codepage) {
+  const encoder = new StringDecoder(codepage === 'CP1252' ? 'latin1' : codepage);
+  var res = encoder.write(data);
+  var trail = encoder.end();
+  return (trail && trail.length > 0) ? Buffer.concat([res, trail]) : res;
 }
 
 function readMaxNChars(parser, callback) {
