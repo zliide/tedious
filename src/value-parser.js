@@ -376,7 +376,7 @@ function readChars(parser, dataLength, codepage, nullValue, callback) {
     return callback(null);
   } else {
     return parser.readBuffer(dataLength, (data) => {
-      const iconv = require('iconv-lite') || StringDecoder(codepage);
+      const iconv = StringDecoder(codepage);
       callback(iconv.decode(data, codepage));
     });
   }
@@ -402,8 +402,8 @@ function readMaxChars(parser, codepage, callback) {
   }
   readMax(parser, (data) => {
     if (data) {
-      const iconv = require('iconv-lite') || StringDecoder(codepage);
-      callback(iconv.decode(data, codepage));
+      const iconv = StringDecoder(codepage);
+      callback(iconv.decode(data));
     } else {
       callback(null);
     }
