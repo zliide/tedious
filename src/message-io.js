@@ -60,6 +60,11 @@ module.exports = class MessageIO extends EventEmitter {
       this.debug.log('Packet size changed from ' + this.outgoingMessageStream.packetSize + ' to ' + packetSize);
       this.outgoingMessageStream.packetSize = packetSize;
     }
+
+    if (this.securePair) {
+      this.securePair.cleartext.setMaxSendFragment(this.outgoingMessageStream.packetSize);
+    }
+
     return this.outgoingMessageStream.packetSize;
   }
 
@@ -115,6 +120,7 @@ module.exports = class MessageIO extends EventEmitter {
   }
 
   encryptAllFutureTraffic() {
+    this.securePair.cleartext.setMaxSendFragment(this.outgoingMessageStream.packetSize);
     this.securePair.encrypted.removeAllListeners('data');
 
     this.outgoingMessageStream.unpipe(this.socket);
