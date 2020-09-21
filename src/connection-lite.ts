@@ -7,17 +7,6 @@ import { createSecureContext, SecureContext, SecureContextOptions } from 'tls';
 
 import { Readable } from 'readable-stream';
 
-import {
-  loginWithUsernamePassword,
-  loginWithVmMSI,
-  loginWithAppServiceMSI,
-  loginWithServicePrincipalSecret,
-  UserTokenCredentials,
-  MSIVmTokenCredentials,
-  MSIAppServiceTokenCredentials,
-  ApplicationTokenCredentials
-} from '@azure/ms-rest-nodeauth';
-
 import BulkLoad, { Options as BulkLoadOptions, Callback as BulkLoadCallback } from './bulk-load';
 import Debug from './debug';
 import { EventEmitter } from 'events';
@@ -194,7 +183,7 @@ const DEFAULT_LANGUAGE = 'us_english';
  */
 const DEFAULT_DATEFORMAT = 'mdy';
 
-interface AzureActiveDirectoryMsiAppServiceAuthentication {
+export interface AzureActiveDirectoryMsiAppServiceAuthentication {
   type: 'azure-active-directory-msi-app-service';
   options: {
     /**
@@ -215,7 +204,7 @@ interface AzureActiveDirectoryMsiAppServiceAuthentication {
   };
 }
 
-interface AzureActiveDirectoryMsiVmAuthentication {
+export interface AzureActiveDirectoryMsiVmAuthentication {
   type: 'azure-active-directory-msi-vm';
   options: {
     /**
@@ -232,7 +221,7 @@ interface AzureActiveDirectoryMsiVmAuthentication {
   };
 }
 
-interface AzureActiveDirectoryAccessTokenAuthentication {
+export interface AzureActiveDirectoryAccessTokenAuthentication {
   type: 'azure-active-directory-access-token';
   options: {
     /**
@@ -243,7 +232,7 @@ interface AzureActiveDirectoryAccessTokenAuthentication {
   };
 }
 
-interface AzureActiveDirectoryPasswordAuthentication {
+export interface AzureActiveDirectoryPasswordAuthentication {
   type: 'azure-active-directory-password';
   options: {
     /**
@@ -257,7 +246,7 @@ interface AzureActiveDirectoryPasswordAuthentication {
   };
 }
 
-interface AzureActiveDirectoryServicePrincipalSecret {
+export interface AzureActiveDirectoryServicePrincipalSecret {
   type: 'azure-active-directory-service-principal-secret';
   options: {
     /**
@@ -377,26 +366,26 @@ export interface InternalConnectionOptions {
  */
 interface State {
   name: string;
-  enter?(this: Connection): void;
-  exit?(this: Connection, newState: State): void;
+  enter?(this: LiteConnection): void;
+  exit?(this: LiteConnection, newState: State): void;
   events: {
-    socketError?(this: Connection, err: Error): void;
-    connectTimeout?(this: Connection): void;
-    socketConnect?(this: Connection): void;
-    data?(this: Connection, data: Buffer): void;
-    message?(this: Connection): void;
-    retry?(this: Connection): void;
-    routingChange?(this: Connection): void;
-    reconnect?(this: Connection): void;
-    featureExtAck?(this: Connection, token: FeatureExtAckToken): void;
-    fedAuthInfo?(this: Connection, token: FedAuthInfoToken): void;
-    endOfMessageMarkerReceived?(this: Connection): void;
-    loginFailed?(this: Connection): void;
-    attention?(this: Connection): void;
+    socketError?(this: LiteConnection, err: Error): void;
+    connectTimeout?(this: LiteConnection): void;
+    socketConnect?(this: LiteConnection): void;
+    data?(this: LiteConnection, data: Buffer): void;
+    message?(this: LiteConnection): void;
+    retry?(this: LiteConnection): void;
+    routingChange?(this: LiteConnection): void;
+    reconnect?(this: LiteConnection): void;
+    featureExtAck?(this: LiteConnection, token: FeatureExtAckToken): void;
+    fedAuthInfo?(this: LiteConnection, token: FedAuthInfoToken): void;
+    endOfMessageMarkerReceived?(this: LiteConnection): void;
+    loginFailed?(this: LiteConnection): void;
+    attention?(this: LiteConnection): void;
   };
 }
 
-type Authentication = DefaultAuthentication |
+export type Authentication = DefaultAuthentication |
                       NtlmAuthentication |
                       AzureActiveDirectoryPasswordAuthentication |
                       AzureActiveDirectoryMsiAppServiceAuthentication |
@@ -859,7 +848,7 @@ const CLEANUP_TYPE = {
  * or [[Connection.execSqlBatch]]), another should not be initiated until the
  * [[Request]]'s completion callback is called.
  */
-class Connection extends EventEmitter {
+class LiteConnection extends EventEmitter {
   /**
    * @private
    */
@@ -3264,10 +3253,10 @@ class Connection extends EventEmitter {
   }
 }
 
-export default Connection;
-module.exports = Connection;
+export default LiteConnection;
+module.exports = LiteConnection;
 
-Connection.prototype.STATE = {
+LiteConnection.prototype.STATE = {
   INITIALIZED: {
     name: 'Initialized',
     events: {}
@@ -3523,57 +3512,8 @@ Connection.prototype.STATE = {
         const fedAuthInfoToken = this.fedAuthInfoToken;
 
         if (fedAuthInfoToken && fedAuthInfoToken.stsurl && fedAuthInfoToken.spn) {
-          const authentication = this.config.authentication as AzureActiveDirectoryPasswordAuthentication | AzureActiveDirectoryMsiVmAuthentication | AzureActiveDirectoryMsiAppServiceAuthentication | AzureActiveDirectoryServicePrincipalSecret;
-
-          const getToken = (callback: (error: Error | null, token?: string) => void) => {
-            const getTokenFromCredentials = (err: Error | undefined, credentials?: UserTokenCredentials | MSIAppServiceTokenCredentials | MSIVmTokenCredentials | ApplicationTokenCredentials) => {
-              if (err) {
-                return callback(err);
-              }
-
-              credentials!.getToken().then((tokenResponse) => {
-                callback(null, tokenResponse.accessToken);
-              }, callback);
-            };
-
-            if (authentication.type === 'azure-active-directory-password') {
-              loginWithUsernamePassword(authentication.options.userName, authentication.options.password, {
-                clientId: '7f98cb04-cd1e-40df-9140-3bf7e2cea4db',
-                tokenAudience: fedAuthInfoToken.spn
-              }, getTokenFromCredentials);
-            } else if (authentication.type === 'azure-active-directory-msi-vm') {
-              loginWithVmMSI({
-                clientId: authentication.options.clientId,
-                msiEndpoint: authentication.options.msiEndpoint,
-                resource: fedAuthInfoToken.spn
-              }, getTokenFromCredentials);
-            } else if (authentication.type === 'azure-active-directory-msi-app-service') {
-              loginWithAppServiceMSI({
-                msiEndpoint: authentication.options.msiEndpoint,
-                msiSecret: authentication.options.msiSecret,
-                resource: fedAuthInfoToken.spn
-              }, getTokenFromCredentials);
-            } else if (authentication.type === 'azure-active-directory-service-principal-secret') {
-              loginWithServicePrincipalSecret(
-                authentication.options.clientId,
-                authentication.options.clientSecret,
-                authentication.options.tenantId,
-                { tokenAudience: fedAuthInfoToken.spn },
-                getTokenFromCredentials
-              );
-            }
-          };
-
-          getToken((err, token) => {
-            if (err) {
-              this.loginError = ConnectionError('Security token could not be authenticated or authorized.', 'EFEDAUTH');
-              this.emit('connect', this.loginError);
-              this.transitionTo(this.STATE.FINAL);
-              return;
-            }
-
-            this.sendFedAuthTokenMessage(token!);
-          });
+          this.emit('connect', ConnectionError('Login through active directory is not supported in the lite connection. Please switch to the normal connection.', 'ELOGIN'));
+          this.transitionTo(this.STATE.FINAL);
         } else if (this.loginError) {
           if (this.loginError.isTransient) {
             this.debug.log('Initiating retry on transient error');
