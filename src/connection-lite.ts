@@ -1912,7 +1912,7 @@ class LiteConnection extends EventEmitter {
 
       const request = this.request;
       if (request) {
-        const err = RequestError('Connection closed before request completed.', 'ECLOSE');
+        const err = new RequestError('Connection closed before request completed.', 'ECLOSE');
         request.callback(err);
         this.request = undefined;
       }
@@ -2173,12 +2173,12 @@ class LiteConnection extends EventEmitter {
           // We assume this is the indication that an in-flight request was canceled.
           if (token.sqlError && !request.error) {
             this.clearCancelTimer();
-            request.error = RequestError('Canceled.', 'ECANCEL');
+            request.error = new RequestError('Canceled.', 'ECANCEL');
           }
         } else {
           if (token.sqlError && !request.error) {
             // check if the DONE_ERROR flags was set, but an ERROR token was not sent.
-            request.error = RequestError('An unknown error has occurred.', 'UNKNOWN');
+            request.error = new RequestError('An unknown error has occurred.', 'UNKNOWN');
           }
           request.emit('done', token.rowCount, token.more, request.rst);
           if (token.rowCount !== undefined) {
@@ -2329,7 +2329,7 @@ class LiteConnection extends EventEmitter {
     request.cancel();
     const timeout = (request.timeout !== undefined) ? request.timeout : this.config.options.requestTimeout;
     const message = 'Timeout: Request failed to complete in ' + timeout + 'ms';
-    request.error = RequestError(message, 'ETIMEOUT');
+    request.error = new RequestError(message, 'ETIMEOUT');
   }
 
   /**
@@ -3117,10 +3117,10 @@ class LiteConnection extends EventEmitter {
     if (this.state !== this.STATE.LOGGED_IN) {
       const message = 'Requests can only be made in the ' + this.STATE.LOGGED_IN.name + ' state, not the ' + this.state.name + ' state';
       this.debug.log(message);
-      request.callback(RequestError(message, 'EINVALIDSTATE'));
+      request.callback(new RequestError(message, 'EINVALIDSTATE'));
     } else if (request.canceled) {
       process.nextTick(() => {
-        request.callback(RequestError('Canceled.', 'ECANCEL'));
+        request.callback(new RequestError('Canceled.', 'ECANCEL'));
       });
     } else {
       if (packetType === TYPE.SQL_BATCH) {
@@ -3633,7 +3633,7 @@ LiteConnection.prototype.STATE = {
           if (sqlRequest.error && sqlRequest.error instanceof RequestError && sqlRequest.error.code === 'ETIMEOUT') {
             sqlRequest.callback(sqlRequest.error);
           } else {
-            sqlRequest.callback(RequestError('Canceled.', 'ECANCEL'));
+            sqlRequest.callback(new RequestError('Canceled.', 'ECANCEL'));
           }
         }
       }
