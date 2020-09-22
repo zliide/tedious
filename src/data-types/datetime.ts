@@ -1,8 +1,8 @@
 import { DataType } from '../data-type';
 import DateTimeN from './datetimen';
-import { ChronoUnit, LocalDate } from '@js-joda/core';
 
-const EPOCH_DATE = LocalDate.ofYearDay(1900, 1);
+const EPOCH_DATE = new Date(1900, 0, 1);
+const UTC_EPOCH_DATE = new Date(Date.UTC(1900, 0, 1));
 
 const DateTime: DataType = {
   id: 0x3D,
@@ -21,26 +21,20 @@ const DateTime: DataType = {
     const value = parameter.value as any; // Temporary solution. Remove 'any' later.
 
     if (value != null) {
-      let date;
+      let days, dstDiff, milliseconds, seconds, threeHundredthsOfSecond;
       if (options.useUTC) {
-        date = LocalDate.of(value.getUTCFullYear(), value.getUTCMonth() + 1, value.getUTCDate());
+        days = Math.floor((parameter.value.getTime() - UTC_EPOCH_DATE.getTime()) / (1000 * 60 * 60 * 24));
+        seconds = parameter.value.getUTCHours() * 60 * 60;
+        seconds += parameter.value.getUTCMinutes() * 60;
+        seconds += parameter.value.getUTCSeconds();
+        milliseconds = (seconds * 1000) + parameter.value.getUTCMilliseconds();
       } else {
-        date = LocalDate.of(value.getFullYear(), value.getMonth() + 1, value.getDate());
-      }
-
-      let days = EPOCH_DATE.until(date, ChronoUnit.DAYS);
-
-      let milliseconds, threeHundredthsOfSecond;
-      if (options.useUTC) {
-        let seconds = value.getUTCHours() * 60 * 60;
-        seconds += value.getUTCMinutes() * 60;
-        seconds += value.getUTCSeconds();
-        milliseconds = (seconds * 1000) + value.getUTCMilliseconds();
-      } else {
-        let seconds = value.getHours() * 60 * 60;
-        seconds += value.getMinutes() * 60;
-        seconds += value.getSeconds();
-        milliseconds = (seconds * 1000) + value.getMilliseconds();
+        dstDiff = -(parameter.value.getTimezoneOffset() - EPOCH_DATE.getTimezoneOffset()) * 60 * 1000;
+        days = Math.floor((parameter.value.getTime() - EPOCH_DATE.getTime() + dstDiff) / (1000 * 60 * 60 * 24));
+        seconds = parameter.value.getHours() * 60 * 60;
+        seconds += parameter.value.getMinutes() * 60;
+        seconds += parameter.value.getSeconds();
+        milliseconds = (seconds * 1000) + parameter.value.getMilliseconds();
       }
 
       threeHundredthsOfSecond = milliseconds / (3 + (1 / 3));

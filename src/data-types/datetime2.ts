@@ -1,8 +1,8 @@
 import { DataType } from '../data-type';
-import { ChronoUnit, LocalDate } from '@js-joda/core';
 import WritableTrackingBuffer from '../tracking-buffer/writable-tracking-buffer';
 
-const EPOCH_DATE = LocalDate.ofYearDay(1, 1);
+const YEAR_ONE = new Date(2000, 0, -730118);
+const UTC_YEAR_ONE = Date.UTC(2000, 0, -730118);
 
 const DateTime2: DataType & { resolveScale: NonNullable<DataType['resolveScale']> } = {
   id: 0x2A,
@@ -29,20 +29,20 @@ const DateTime2: DataType & { resolveScale: NonNullable<DataType['resolveScale']
 
   *generateParameterData(parameter, options) {
     const value = parameter.value;
-    let scale = parameter.scale;
+    const scale = parameter.scale;
 
     if (value != null) {
       const buffer = new WritableTrackingBuffer(16);
-      scale = scale!;
+      const time = new Date(+value);
 
       let timestamp;
       if (options.useUTC) {
-        timestamp = ((value.getUTCHours() * 60 + value.getUTCMinutes()) * 60 + value.getUTCSeconds()) * 1000 + value.getUTCMilliseconds();
+        timestamp = ((time.getUTCHours() * 60 + time.getUTCMinutes()) * 60 + time.getUTCSeconds()) * 1000 + time.getUTCMilliseconds();
       } else {
-        timestamp = ((value.getHours() * 60 + value.getMinutes()) * 60 + value.getSeconds()) * 1000 + value.getMilliseconds();
+        timestamp = ((time.getHours() * 60 + time.getMinutes()) * 60 + time.getSeconds()) * 1000 + time.getMilliseconds();
       }
-      timestamp = timestamp * Math.pow(10, scale - 3);
-      timestamp += (value.nanosecondDelta != null ? value.nanosecondDelta : 0) * Math.pow(10, scale);
+      timestamp = timestamp * Math.pow(10, scale! - 3);
+      timestamp += (parameter.value.nanosecondDelta != null ? parameter.value.nanosecondDelta : 0) * Math.pow(10, scale!);
       timestamp = Math.round(timestamp);
 
       switch (scale) {
@@ -64,15 +64,13 @@ const DateTime2: DataType & { resolveScale: NonNullable<DataType['resolveScale']
           buffer.writeUInt40LE(timestamp);
       }
 
-      let date;
       if (options.useUTC) {
-        date = LocalDate.of(value.getUTCFullYear(), value.getUTCMonth() + 1, value.getUTCDate());
+        buffer.writeUInt24LE(Math.floor((+parameter.value - UTC_YEAR_ONE) / 86400000));
       } else {
-        date = LocalDate.of(value.getFullYear(), value.getMonth() + 1, value.getDate());
+        const dstDiff = -(parameter.value.getTimezoneOffset() - YEAR_ONE.getTimezoneOffset()) * 60 * 1000;
+        buffer.writeUInt24LE(Math.floor((+parameter.value - +YEAR_ONE + dstDiff) / 86400000));
       }
 
-      const days = EPOCH_DATE.until(date, ChronoUnit.DAYS);
-      buffer.writeUInt24LE(days);
       yield buffer.data;
     } else {
       const buffer = new WritableTrackingBuffer(1);

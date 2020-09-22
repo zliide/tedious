@@ -1,8 +1,7 @@
 import { DataType } from '../data-type';
-import { ChronoUnit, LocalDate } from '@js-joda/core';
 import WritableTrackingBuffer from '../tracking-buffer/writable-tracking-buffer';
 
-const EPOCH_DATE = LocalDate.ofYearDay(1, 1);
+const UTC_YEAR_ONE = Date.UTC(2000, 0, -730118);
 
 const DateTimeOffset: DataType & { resolveScale: NonNullable<DataType['resolveScale']> } = {
   id: 0x2B,
@@ -33,12 +32,16 @@ const DateTimeOffset: DataType & { resolveScale: NonNullable<DataType['resolveSc
       const buffer = new WritableTrackingBuffer(16);
       scale = scale!;
 
-      let timestamp;
-      timestamp = ((value.getUTCHours() * 60 + value.getUTCMinutes()) * 60 + value.getUTCSeconds()) * 1000 + value.getMilliseconds();
-      timestamp = timestamp * Math.pow(10, scale - 3);
-      timestamp += (value.nanosecondDelta != null ? value.nanosecondDelta : 0) * Math.pow(10, scale);
-      timestamp = Math.round(timestamp);
+      const time = new Date(+value);
+      time.setUTCFullYear(1970);
+      time.setUTCMonth(0);
+      time.setUTCDate(1);
 
+      let timestamp;
+      timestamp = +time * Math.pow(10, scale! - 3);
+      timestamp += (parameter.value.nanosecondDelta != null ? value.nanosecondDelta : 0) * Math.pow(10, scale!);
+
+      const offset = -value.getTimezoneOffset();
       switch (scale) {
         case 0:
         case 1:
@@ -58,12 +61,9 @@ const DateTimeOffset: DataType & { resolveScale: NonNullable<DataType['resolveSc
           buffer.writeUInt40LE(timestamp);
       }
 
-      const date = LocalDate.of(value.getUTCFullYear(), value.getUTCMonth() + 1, value.getUTCDate());
-      const days = EPOCH_DATE.until(date, ChronoUnit.DAYS);
-      buffer.writeUInt24LE(days);
-
-      const offset = -value.getTimezoneOffset();
+      buffer.writeUInt24LE(Math.floor((+parameter.value - UTC_YEAR_ONE) / 86400000));
       buffer.writeInt16LE(offset);
+
       yield buffer.data;
     } else {
       const buffer = new WritableTrackingBuffer(1);
