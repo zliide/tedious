@@ -9,13 +9,6 @@ import { type SecureContextOptions } from 'tls';
 
 import { Readable } from 'stream';
 
-import {
-  DefaultAzureCredential,
-  ClientSecretCredential,
-  ManagedIdentityCredential,
-  UsernamePasswordCredential,
-} from '@azure/identity';
-
 import BulkLoad, { type Options as BulkLoadOptions, type Callback as BulkLoadCallback } from './bulk-load';
 import Debug from './debug';
 import { EventEmitter, once } from 'events';
@@ -24,7 +17,6 @@ import { TransientErrorLookup } from './transient-error-lookup';
 import { TYPE } from './packet';
 import PreloginPayload from './prelogin-payload';
 import Login7Payload from './login7-payload';
-import NTLMResponsePayload from './ntlm-payload';
 import Request from './request';
 import RpcRequestPayload from './rpcrequest-payload';
 import SqlBatchPayload from './sqlbatch-payload';
@@ -38,7 +30,7 @@ import { versions } from './tds-versions';
 import Message from './message';
 import { type Metadata } from './metadata-parser';
 import { createNTLMRequest } from './ntlm';
-import { ColumnEncryptionAzureKeyVaultProvider } from './always-encrypted/keystore-provider-azure-key-vault';
+import type { ColumnEncryptionAzureKeyVaultProvider } from './always-encrypted/keystore-provider-azure-key-vault';
 
 import { type Parameter, TYPES } from './data-type';
 import { BulkLoadPayload } from './bulk-load-payload';
@@ -196,7 +188,7 @@ const DEFAULT_LANGUAGE = 'us_english';
  */
 const DEFAULT_DATEFORMAT = 'mdy';
 
-interface AzureActiveDirectoryMsiAppServiceAuthentication {
+export interface AzureActiveDirectoryMsiAppServiceAuthentication {
   type: 'azure-active-directory-msi-app-service';
   options: {
     /**
@@ -209,7 +201,7 @@ interface AzureActiveDirectoryMsiAppServiceAuthentication {
   };
 }
 
-interface AzureActiveDirectoryMsiVmAuthentication {
+export interface AzureActiveDirectoryMsiVmAuthentication {
   type: 'azure-active-directory-msi-vm';
   options: {
     /**
@@ -222,7 +214,7 @@ interface AzureActiveDirectoryMsiVmAuthentication {
   };
 }
 
-interface AzureActiveDirectoryDefaultAuthentication {
+export interface AzureActiveDirectoryDefaultAuthentication {
   type: 'azure-active-directory-default';
   options: {
     /**
@@ -236,7 +228,7 @@ interface AzureActiveDirectoryDefaultAuthentication {
 }
 
 
-interface AzureActiveDirectoryAccessTokenAuthentication {
+export interface AzureActiveDirectoryAccessTokenAuthentication {
   type: 'azure-active-directory-access-token';
   options: {
     /**
@@ -247,7 +239,7 @@ interface AzureActiveDirectoryAccessTokenAuthentication {
   };
 }
 
-interface AzureActiveDirectoryPasswordAuthentication {
+export interface AzureActiveDirectoryPasswordAuthentication {
   type: 'azure-active-directory-password';
   options: {
     /**
@@ -272,7 +264,7 @@ interface AzureActiveDirectoryPasswordAuthentication {
   };
 }
 
-interface AzureActiveDirectoryServicePrincipalSecret {
+export interface AzureActiveDirectoryServicePrincipalSecret {
   type: 'azure-active-directory-service-principal-secret';
   options: {
     /**
@@ -290,7 +282,7 @@ interface AzureActiveDirectoryServicePrincipalSecret {
   };
 }
 
-interface NtlmAuthentication {
+export interface NtlmAuthentication {
   type: 'ntlm';
   options: {
     /**
@@ -404,18 +396,18 @@ interface KeyStoreProviderMap {
  */
 interface State {
   name: string;
-  enter?(this: Connection): void;
-  exit?(this: Connection, newState: State): void;
+  enter?(this: LiteConnection): void;
+  exit?(this: LiteConnection, newState: State): void;
   events: {
-    socketError?(this: Connection, err: Error): void;
-    connectTimeout?(this: Connection): void;
-    message?(this: Connection, message: Message): void;
-    retry?(this: Connection): void;
-    reconnect?(this: Connection): void;
+    socketError?(this: LiteConnection, err: Error): void;
+    connectTimeout?(this: LiteConnection): void;
+    message?(this: LiteConnection, message: Message): void;
+    retry?(this: LiteConnection): void;
+    reconnect?(this: LiteConnection): void;
   };
 }
 
-type Authentication = DefaultAuthentication |
+export type Authentication = DefaultAuthentication |
   NtlmAuthentication |
   AzureActiveDirectoryPasswordAuthentication |
   AzureActiveDirectoryMsiAppServiceAuthentication |
@@ -893,7 +885,7 @@ interface RoutingData {
  * or [[Connection.execSqlBatch]]), another should not be initiated until the
  * [[Request]]'s completion callback is called.
  */
-class Connection extends EventEmitter {
+class LiteConnection extends EventEmitter {
   /**
    * @private
    */
@@ -2283,7 +2275,7 @@ class Connection extends EventEmitter {
    * @private
    */
   dispatchEvent<T extends keyof State['events']>(eventName: T, ...args: Parameters<NonNullable<State['events'][T]>>) {
-    const handler = this.state.events[eventName] as ((this: Connection, ...args: any[]) => void) | undefined;
+    const handler = this.state.events[eventName] as ((this: LiteConnection, ...args: any[]) => void) | undefined;
     if (handler) {
       handler.apply(this, args);
     } else {
@@ -3231,10 +3223,10 @@ function isTransientError(error: AggregateError | ConnectionError): boolean {
   return (error instanceof ConnectionError) && !!error.isTransient;
 }
 
-export default Connection;
-module.exports = Connection;
+export default LiteConnection;
+module.exports = LiteConnection;
 
-Connection.prototype.STATE = {
+LiteConnection.prototype.STATE = {
   INITIALIZED: {
     name: 'Initialized',
     events: {}
@@ -3430,56 +3422,8 @@ Connection.prototype.STATE = {
     name: 'SentLogin7WithNTLMLogin',
     enter: function() {
       (async () => {
-        while (true) {
-          let message;
-          try {
-            message = await this.messageIo.readMessage();
-          } catch (err: any) {
-            return this.socketError(err);
-          }
-
-          const handler = new Login7TokenHandler(this);
-          const tokenStreamParser = this.createTokenStreamParser(message, handler);
-
-          await once(tokenStreamParser, 'end');
-
-          if (handler.loginAckReceived) {
-            if (handler.routingData) {
-              this.routingData = handler.routingData;
-              return this.transitionTo(this.STATE.REROUTING);
-            } else {
-              return this.transitionTo(this.STATE.LOGGED_IN_SENDING_INITIAL_SQL);
-            }
-          } else if (this.ntlmpacket) {
-            const authentication = this.config.authentication as NtlmAuthentication;
-
-            const payload = new NTLMResponsePayload({
-              domain: authentication.options.domain,
-              userName: authentication.options.userName,
-              password: authentication.options.password,
-              ntlmpacket: this.ntlmpacket
-            });
-
-            this.messageIo.sendMessage(TYPE.NTLMAUTH_PKT, payload.data);
-            this.debug.payload(function() {
-              return payload.toString('  ');
-            });
-
-            this.ntlmpacket = undefined;
-          } else if (this.loginError) {
-            if (isTransientError(this.loginError)) {
-              this.debug.log('Initiating retry on transient error');
-              return this.transitionTo(this.STATE.TRANSIENT_FAILURE_RETRY);
-            } else {
-              this.emit('connect', this.loginError);
-              return this.transitionTo(this.STATE.FINAL);
-            }
-          } else {
-            this.emit('connect', new ConnectionError('Login failed.', 'ELOGIN'));
-            return this.transitionTo(this.STATE.FINAL);
-          }
-        }
-
+        this.emit('connect', new ConnectionError('Login through NTLM is not supported in the lite connection. Please switch to the normal connection.', 'ELOGIN'));
+        this.transitionTo(this.STATE.FINAL);
       })().catch((err) => {
         process.nextTick(() => {
           throw err;
@@ -3499,90 +3443,8 @@ Connection.prototype.STATE = {
     name: 'SentLogin7Withfedauth',
     enter: function() {
       (async () => {
-        let message;
-        try {
-          message = await this.messageIo.readMessage();
-        } catch (err: any) {
-          return this.socketError(err);
-        }
-
-        const handler = new Login7TokenHandler(this);
-        const tokenStreamParser = this.createTokenStreamParser(message, handler);
-        await once(tokenStreamParser, 'end');
-        if (handler.loginAckReceived) {
-          if (handler.routingData) {
-            this.routingData = handler.routingData;
-            this.transitionTo(this.STATE.REROUTING);
-          } else {
-            this.transitionTo(this.STATE.LOGGED_IN_SENDING_INITIAL_SQL);
-          }
-
-          return;
-        }
-
-        const fedAuthInfoToken = handler.fedAuthInfoToken;
-
-        if (fedAuthInfoToken && fedAuthInfoToken.stsurl && fedAuthInfoToken.spn) {
-          const authentication = this.config.authentication as AzureActiveDirectoryPasswordAuthentication | AzureActiveDirectoryMsiVmAuthentication | AzureActiveDirectoryMsiAppServiceAuthentication | AzureActiveDirectoryServicePrincipalSecret | AzureActiveDirectoryDefaultAuthentication;
-          const tokenScope = new URL('/.default', fedAuthInfoToken.spn).toString();
-
-          let credentials;
-
-          switch (authentication.type) {
-            case 'azure-active-directory-password':
-              credentials = new UsernamePasswordCredential(
-                authentication.options.tenantId ?? 'common',
-                authentication.options.clientId,
-                authentication.options.userName,
-                authentication.options.password
-              );
-              break;
-            case 'azure-active-directory-msi-vm':
-            case 'azure-active-directory-msi-app-service':
-              const msiArgs = authentication.options.clientId ? [authentication.options.clientId, {}] : [{}];
-              credentials = new ManagedIdentityCredential(...msiArgs);
-              break;
-            case 'azure-active-directory-default':
-              const args = authentication.options.clientId ? { managedIdentityClientId: authentication.options.clientId } : {};
-              credentials = new DefaultAzureCredential(args);
-              break;
-            case 'azure-active-directory-service-principal-secret':
-              credentials = new ClientSecretCredential(
-                authentication.options.tenantId,
-                authentication.options.clientId,
-                authentication.options.clientSecret
-              );
-              break;
-          }
-
-          let tokenResponse;
-          try {
-            tokenResponse = await credentials.getToken(tokenScope);
-          } catch (err) {
-            this.loginError = new AggregateError(
-              [new ConnectionError('Security token could not be authenticated or authorized.', 'EFEDAUTH'), err]);
-            this.emit('connect', this.loginError);
-            this.transitionTo(this.STATE.FINAL);
-            return;
-          }
-
-
-          const token = tokenResponse.token;
-          this.sendFedAuthTokenMessage(token);
-
-        } else if (this.loginError) {
-          if (isTransientError(this.loginError)) {
-            this.debug.log('Initiating retry on transient error');
-            this.transitionTo(this.STATE.TRANSIENT_FAILURE_RETRY);
-          } else {
-            this.emit('connect', this.loginError);
-            this.transitionTo(this.STATE.FINAL);
-          }
-        } else {
-          this.emit('connect', new ConnectionError('Login failed.', 'ELOGIN'));
-          this.transitionTo(this.STATE.FINAL);
-        }
-
+        this.emit('connect', new ConnectionError('Login through active directory is not supported in the lite connection. Please switch to the normal connection.', 'ELOGIN'));
+        this.transitionTo(this.STATE.FINAL);
       })().catch((err) => {
         process.nextTick(() => {
           throw err;
