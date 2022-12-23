@@ -45,6 +45,7 @@
     "@js-joda/core": "^5.2.0",
     "bl": "^5.0.0",
     "es-aggregate-error": "^1.0.8",
+    "@types/es-aggregate-error": "^1.0.2",
     "iconv-lite": "^0.6.3",
     "js-md4": "^0.3.2",
     "jsbi": "^4.3.0",
@@ -64,7 +65,6 @@
     "@commitlint/cli": "^16.2.4",
     "@commitlint/config-conventional": "^16.2.4",
     "@commitlint/travis-cli": "^16.2.4",
-    "@types/es-aggregate-error": "^1.0.2",
     "@types/async": "^3.2.13",
     "@types/bl": "^5.0.2",
     "@types/chai": "^4.3.1",
@@ -96,11 +96,10 @@
     "test-integration": "mocha test/integration/",
     "test-all": "mocha test/unit/ test/unit/token/ test/unit/tracking-buffer test/integration/",
     "build": "rimraf lib && babel src --out-dir lib --extensions .js,.ts",
-    "prepublish": "npm run build",
+    "prepare": "npm run build && tsc -p tsconfig.types.json",
     "semantic-release": "semantic-release"
   },
   "babel": {
-    "sourceMaps": "both",
     "ignore": [
       "./src/**/*.d.ts"
     ],

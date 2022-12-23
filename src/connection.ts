@@ -45,7 +45,6 @@ import { BulkLoadPayload } from './bulk-load-payload';
 import { Collation } from './collation';
 
 import AggregateError from 'es-aggregate-error';
-import { version } from '../package.json';
 import { URL } from 'url';
 import { AttentionTokenHandler, InitialSqlTokenHandler, Login7TokenHandler, RequestTokenHandler, TokenHandler } from './token/handler';
 
@@ -2231,13 +2230,9 @@ class Connection extends EventEmitter {
    * @private
    */
   sendPreLogin() {
-    const [ , major, minor, build ] = /^(\d+)\.(\d+)\.(\d+)/.exec(version) ?? [ '0.0.0', '0', '0', '0' ];
-
     const payload = new PreloginPayload({
-      encrypt: this.config.options.encrypt,
-      version: { major: Number(major), minor: Number(minor), build: Number(build), subbuild: 0 }
+      encrypt: this.config.options.encrypt, version: { major: 1, minor: 0, build: 0, subbuild: 0 },
     });
-
     this.messageIo.sendMessage(TYPE.PRELOGIN, payload.data);
     this.debug.payload(function() {
       return payload.toString('  ');
