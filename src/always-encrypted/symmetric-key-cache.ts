@@ -6,7 +6,7 @@ import SymmetricKey from './symmetric-key';
 import { InternalConnectionOptions as ConnectionOptions } from '../connection';
 import LRU from 'lru-cache';
 
-const cache = new LRU<string, SymmetricKey>(0);
+const cache = new LRU<string, SymmetricKey>({ max: 0 });
 
 export const getKey = async (keyInfo: EncryptionKeyInfo, options: ConnectionOptions): Promise<SymmetricKey> => {
   if (!options.trustedServerNameAE) {
@@ -30,7 +30,7 @@ export const getKey = async (keyInfo: EncryptionKeyInfo, options: ConnectionOpti
     const encryptionKey = new SymmetricKey(plaintextKey);
 
     if (options.columnEncryptionKeyCacheTTL > 0) {
-      cache.set(keyLookupValue, encryptionKey, options.columnEncryptionKeyCacheTTL);
+      cache.set(keyLookupValue, encryptionKey, { ttl: options.columnEncryptionKeyCacheTTL });
     }
 
     return encryptionKey;
