@@ -1,3 +1,4 @@
+import iconv from 'iconv-lite';
 import { once } from 'events';
 
 import {
@@ -26,6 +27,7 @@ import { TYPE } from './packet';
 import Message from './message';
 import NTLMResponsePayload from './ntlm-payload';
 import { Login7TokenHandler } from './token/handler';
+import { setCodec } from './conv';
 
 export type InternalConnectionOptions = LiteInternalConnectionOptions;
 export type ConnectionConfiguration = LiteConnectionConfiguration;
@@ -96,6 +98,8 @@ function isTransientError(error: AggregateError | ConnectionError): boolean {
 
 export default Connection;
 module.exports = Connection;
+
+setCodec(iconv);
 
 Connection.prototype.STATE = {
   ...LiteConnection.prototype.STATE,
