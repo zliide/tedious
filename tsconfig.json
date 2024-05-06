@@ -1,6 +1,6 @@
 {
   "compilerOptions": {
-    "target": "esnext",
+    "target": "ES2015",
     "moduleResolution": "node",
     "allowJs": true,
     "noEmit": true,
@@ -9,7 +9,7 @@
     "allowSyntheticDefaultImports": true,
     "lib": [ "esnext" ],
     "skipLibCheck": true,
-    "resolveJsonModule": true,
+    "resolveJsonModule": false,
     "exactOptionalPropertyTypes": true,
     "verbatimModuleSyntax": true
   },

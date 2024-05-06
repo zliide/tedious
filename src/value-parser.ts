@@ -11,8 +11,8 @@ const NULL = (1 << 16) - 1;
 const MAX = (1 << 16) - 1;
 const THREE_AND_A_THIRD = 3 + (1 / 3);
 const MONEY_DIVISOR = 10000;
-const PLP_NULL = 0xFFFFFFFFFFFFFFFFn;
-const UNKNOWN_PLP_LEN = 0xFFFFFFFFFFFFFFFEn;
+const PLP_NULL = BigInt('0xFFFFFFFFFFFFFFFF');
+const UNKNOWN_PLP_LEN = BigInt('0xFFFFFFFFFFFFFFFE');
 const DEFAULT_ENCODING = 'utf8';
 
 function readTinyInt(buf: Buffer, offset: number): Result<number> {

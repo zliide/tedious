@@ -37,8 +37,6 @@ import { BulkLoadPayload } from './bulk-load-payload';
 import { Collation } from './collation';
 import Procedures from './special-stored-procedure';
 
-import { version } from '../package.json';
-import { URL } from 'url';
 import { AttentionTokenHandler, InitialSqlTokenHandler, Login7TokenHandler, RequestTokenHandler, TokenHandler } from './token/handler';
 
 type BeginTransactionCallback =
@@ -1018,7 +1016,7 @@ class LiteConnection extends EventEmitter {
   /**
    * @private
    */
-  _cancelAfterRequestSent: () => void;
+  declare _cancelAfterRequestSent: () => void;
 
   /**
    * @private
@@ -2343,13 +2341,12 @@ class LiteConnection extends EventEmitter {
    * @private
    */
   sendPreLogin() {
-    const [, major, minor, build] = /^(\d+)\.(\d+)\.(\d+)/.exec(version) ?? ['0.0.0', '0', '0', '0'];
     const payload = new PreloginPayload({
       // If encrypt setting is set to 'strict', then we should have already done the encryption before calling
       // this function. Therefore, the encrypt will be set to false here.
       // Otherwise, we will set encrypt here based on the encrypt Boolean value from the configuration.
       encrypt: typeof this.config.options.encrypt === 'boolean' && this.config.options.encrypt,
-      version: { major: Number(major), minor: Number(minor), build: Number(build), subbuild: 0 }
+      version: { major: 18, minor: 2, build: 0, subbuild: 0 }
     });
 
     this.messageIo.sendMessage(TYPE.PRELOGIN, payload.data);

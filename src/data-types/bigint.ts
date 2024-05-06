@@ -4,10 +4,10 @@ import WritableTrackingBuffer from '../tracking-buffer/writable-tracking-buffer'
 
 const DATA_LENGTH = Buffer.from([0x08]);
 const NULL_LENGTH = Buffer.from([0x00]);
-const MAX_SAFE_BIGINT = 9223372036854775807n;
-const MIN_SAFE_BIGINT = -9223372036854775808n;
+const MAX_SAFE_BIGINT = BigInt('9223372036854775807');
+const MIN_SAFE_BIGINT = BigInt('-9223372036854775808');
 
-const BigInt: DataType = {
+const BigIntDataType: DataType = {
   id: 0x7F,
   type: 'INT8',
   name: 'BigInt',
@@ -55,5 +55,5 @@ const BigInt: DataType = {
   }
 };
 
-export default BigInt;
-module.exports = BigInt;
+export default BigIntDataType;
+module.exports = BigIntDataType;
